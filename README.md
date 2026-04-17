@@ -1,63 +1,69 @@
-# Local-First AI Monetization Starter (Production-ish)
+# Research Watcher (Gate.io + Binance, no API key)
 
-Этот репозиторий — upgrade от MVP к более взрослой архитектуре для платного local-first AI продукта.
+This repo now includes a **public market-data research watcher** that polls Gate.io and Binance perpetual futures endpoints and opens/updates GitHub issues as research alerts.
 
-## Что добавлено для уровня "можно продавать"
+## What it does
 
-- License API разделён на слои (`config`, `schemas`, `store`, `service`, `security`).
-- Лицензии хранятся в `backend/data/licenses.json` (демо-persistency вместо in-memory).
-- Проверка seat limit (привязка устройств через `machine_hash`).
-- Подписанный grant (HMAC-SHA256), который клиент валидирует локально.
-- Offline fallback по кэшу до `grace_until`.
-- Базовые тесты для ключевых edge cases.
+- Polls Gate.io USDT perpetual data (ticker, contract funding fields, order book).
+- Polls Binance USDⓈ-M futures data (24hr ticker, premium index/funding, open interest, depth).
+- Evaluates alert rules:
+  - funding-rate extremes,
+  - open-interest jumps,
+  - spread widening.
+- Upserts GitHub issues with `research-alert` labels.
+- Runs in GitHub Actions every 15 minutes.
 
-## Структура
+## Endpoints used
 
-```text
-backend/
-  app/
-    config.py
-    schemas.py
-    security.py
-    service.py
-    store.py
-  tests/
-    test_license_service.py
-  main.py
-local_client/
-  license.py
-```
+### Gate.io (public)
+- `GET https://api.gateio.ws/api/v4/futures/usdt/tickers?contract=BTC_USDT`
+- `GET https://api.gateio.ws/api/v4/futures/usdt/contracts/BTC_USDT`
+- `GET https://api.gateio.ws/api/v4/futures/usdt/order_book?contract=BTC_USDT&limit=1`
 
-## Быстрый старт
+### Binance USDⓈ-M (public)
+- `GET https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT`
+- `GET https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT`
+- `GET https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT`
+- `GET https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=5`
+
+## Run locally
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
-uvicorn backend.main:app --reload --port 8080
+python -m research_watcher.main
 ```
 
-Проверка:
+Optional env vars:
 
-```bash
-curl -X POST http://127.0.0.1:8080/v1/license/check \
-  -H "x-api-token: dev-token-change-me" \
-  -H "Content-Type: application/json" \
-  -d '{"license_key":"DEV-PRO-123","machine_hash":"abcabcabcabcabcabc","app_version":"0.2.0"}'
+- `SYMBOL_GATE` (default `BTC_USDT`)
+- `SYMBOL_BINANCE` (default `BTCUSDT`)
+- `FUNDING_ABS_THRESHOLD` (default `0.0008`)
+- `OI_JUMP_RATIO_THRESHOLD` (default `0.05`)
+- `SPREAD_BPS_THRESHOLD` (default `8`)
+- `STATE_FILE` (default `.watcher_state.json`)
+- `GITHUB_TOKEN`, `GITHUB_REPOSITORY` (for issue creation/updating)
+
+## GitHub Actions
+
+Workflow: `.github/workflows/research-watcher.yml`
+
+- Runs every 15 minutes via cron.
+- Uses `secrets.GITHUB_TOKEN` and repo permissions `issues: write`.
+
+## Project layout
+
+```text
+research_watcher/
+  config.py
+  exchanges.py
+  github_issues.py
+  main.py
+  models.py
+  rules.py
+  state.py
+tests/
+  test_rules.py
+.github/workflows/research-watcher.yml
 ```
-
-## Тесты
-
-```bash
-pytest -q
-```
-
-## Как двигаться к "$100k codebase"
-
-- Вынести store в PostgreSQL + миграции (Alembic).
-- Добавить billing интеграции (Stripe/LemonSqueezy webhooks).
-- Добавить admin API для выдачи/revoke ключей.
-- Ввести audit trails и rate limiting.
-- Выпуск desktop оболочки (Tauri/Electron) + авто-обновления.
-- Телеметрия активаций/retention (privacy-preserving).

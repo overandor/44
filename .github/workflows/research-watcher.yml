@@ -1,0 +1,38 @@
+name: Research Watcher
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run watcher
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SYMBOL_GATE: BTC_USDT
+          SYMBOL_BINANCE: BTCUSDT
+          FUNDING_ABS_THRESHOLD: "0.0008"
+          OI_JUMP_RATIO_THRESHOLD: "0.05"
+          SPREAD_BPS_THRESHOLD: "8"
+        run: python -m research_watcher.main
