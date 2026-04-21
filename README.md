@@ -1,69 +1,47 @@
-# Research Watcher (Gate.io + Binance, no API key)
+# Research Watcher + Arbitrage Simulation Platform
 
-This repo now includes a **public market-data research watcher** that polls Gate.io and Binance perpetual futures endpoints and opens/updates GitHub issues as research alerts.
+This repository now includes two components:
 
-## What it does
+1. **Research watcher** for public market data polling and alert generation.
+2. **Simulated arbitrage SaaS API** with multi-user allocations, centralized execution, PnL distribution, and platform revenue tracking.
 
-- Polls Gate.io USDT perpetual data (ticker, contract funding fields, order book).
-- Polls Binance USDⓈ-M futures data (24hr ticker, premium index/funding, open interest, depth).
-- Evaluates alert rules:
-  - funding-rate extremes,
-  - open-interest jumps,
-  - spread widening.
-- Upserts GitHub issues with `research-alert` labels.
-- Runs in GitHub Actions every 15 minutes.
+## Arbitrage simulation API (Phase 1 + Phase 2)
 
-## Endpoints used
+### Features
 
-### Gate.io (public)
-- `GET https://api.gateio.ws/api/v4/futures/usdt/tickers?contract=BTC_USDT`
-- `GET https://api.gateio.ws/api/v4/futures/usdt/contracts/BTC_USDT`
-- `GET https://api.gateio.ws/api/v4/futures/usdt/order_book?contract=BTC_USDT&limit=1`
+- API-key based authentication for user endpoints.
+- Per-user capital allocation.
+- Centralized engine-only trade execution (users cannot trigger trades).
+- Profit/loss distribution by allocation share.
+- 20% performance fee on profitable user allocations.
+- Compounding balances after each trade.
+- Platform revenue tracking from collected fees.
+- Background scanner/execution loop.
+- Simulation-only execution mode (`EXECUTION_MODE=sim`) with latency, tx ids, and occasional failures.
 
-### Binance USDⓈ-M (public)
-- `GET https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT`
-- `GET https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT`
-- `GET https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT`
-- `GET https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=5`
+### Endpoints
 
-## Run locally
+- `POST /user/create`
+- `POST /allocate` (`x-api-key` required)
+- `GET /dashboard` (`x-api-key` required)
+- `GET /my/trades` (`x-api-key` required)
+- `GET /metrics/revenue`
+- `GET /metrics/live`
+
+### Run
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python -m research_watcher.main
+uvicorn research_watcher.api:app --reload
 ```
 
-Optional env vars:
+Optional environment variables:
 
-- `SYMBOL_GATE` (default `BTC_USDT`)
-- `SYMBOL_BINANCE` (default `BTCUSDT`)
-- `FUNDING_ABS_THRESHOLD` (default `0.0008`)
-- `OI_JUMP_RATIO_THRESHOLD` (default `0.05`)
-- `SPREAD_BPS_THRESHOLD` (default `8`)
-- `STATE_FILE` (default `.watcher_state.json`)
-- `GITHUB_TOKEN`, `GITHUB_REPOSITORY` (for issue creation/updating)
+- `EXECUTION_MODE` (default: `sim`)
+- `DB_PATH` (default: `simulation.db`)
 
-## GitHub Actions
+## Existing research watcher
 
-Workflow: `.github/workflows/research-watcher.yml`
-
-- Runs every 15 minutes via cron.
-- Uses `secrets.GITHUB_TOKEN` and repo permissions `issues: write`.
-
-## Project layout
-
-```text
-research_watcher/
-  config.py
-  exchanges.py
-  github_issues.py
-  main.py
-  models.py
-  rules.py
-  state.py
-tests/
-  test_rules.py
-.github/workflows/research-watcher.yml
-```
+The original market-data research watcher modules are still present and tested (`research_watcher/main.py`, `research_watcher/exchanges.py`, `research_watcher/rules.py`).
