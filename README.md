@@ -45,3 +45,32 @@ Optional environment variables:
 ## Existing research watcher
 
 The original market-data research watcher modules are still present and tested (`research_watcher/main.py`, `research_watcher/exchanges.py`, `research_watcher/rules.py`).
+
+## Codex workspace/profile setup (recommended)
+
+If you use Codex across multiple repositories, avoid rebuilding local environments for each repo.
+
+- Keep a single global Codex install and login.
+- Put shared defaults in `~/.codex/config.toml`.
+- Use project overrides in `.codex/config.toml` when needed.
+- Define per-target profiles and switch with `codex --profile <name>`.
+- Keep related repositories in one workspace tree (for example sibling folders under one directory).
+
+Example:
+
+```toml
+# ~/.codex/config.toml
+model = "gpt-5.4"
+approval_policy = "on-request"
+
+[profiles.overandor]
+approval_policy = "on-request"
+
+[profiles.jskroby]
+approval_policy = "on-request"
+```
+
+```bash
+codex --profile overandor
+codex --profile jskroby
+```
